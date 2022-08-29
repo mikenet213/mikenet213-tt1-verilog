@@ -1,7 +1,8 @@
-module s_p_shift_reg #(parameter LENGTH=256) (input d,
+module s_p_shift_reg #(parameter LENGTH=256, parameter ROT_LEN = 8) (input d,
                                           input clk,
                                           input rst_n,
                                           input cs_n,
+                                          input rot_n,
                                           output reg [LENGTH-1:0] out);
                                                       
   always @(posedge clk or negedge rst_n)
@@ -10,7 +11,9 @@ module s_p_shift_reg #(parameter LENGTH=256) (input d,
         out <= {LENGTH{1'b0}};
       else if (!cs_n)
         out <= {out[LENGTH-2:0], d};
-      else
+      else if (!rot_n)
+        out <= {out[ROT_LEN -1:0], out[LENGTH -1:ROT_LEN]};
+      else 
         out <= out;
     end
   
@@ -37,12 +40,12 @@ module lut #(parameter IN_WIDTH=4, parameter OUT_WIDTH=4) (input [IN_WIDTH-1:0] 
 endmodule
 
 module serial_load_lut #(parameter IN_WIDTH=4, parameter OUT_WIDTH=4) (
-  input d, input clk, input rst_n, input cs_n, input [IN_WIDTH-1:0] sel, output [OUT_WIDTH-1:0] out);
+  input d, input clk, input rst_n, input cs_n, input rot_n, input [IN_WIDTH-1:0] sel, output [OUT_WIDTH-1:0] out);
   
   wire [2**(IN_WIDTH)*OUT_WIDTH-1:0] parallel_table;
   
-  s_p_shift_reg #(2**(IN_WIDTH)*OUT_WIDTH) p_s_shift_reg(.d(d),.clk(clk),.rst_n(rst_n),.cs_n(cs_n),
-                                                         .out(parallel_table));
+  s_p_shift_reg #(2**(IN_WIDTH)*OUT_WIDTH, OUT_WIDTH) p_s_shift_reg(.d(d),.clk(clk),.rst_n(rst_n),.cs_n(cs_n),
+                                                                  .rot_n(rot_n), .out(parallel_table));
   
   lut #(IN_WIDTH, OUT_WIDTH) lut(.sel(sel), .in(parallel_table), .out(out));
   
@@ -53,9 +56,15 @@ module user_module_bc4d7220e4fdbf20a574d56ea112a8e1(
   input [7:0] io_in,
   output [7:0] io_out
 );
+
   
-  serial_load_lut #(4, 3) lut(.d(io_in[0]), .clk(io_in[1]), .rst_n(io_in[2]), .cs_n(io_in[3]), 
-                              .sel(io_in[7:4]), .out(io_out[2:0]));
+  // Out of I/O to RST -- we can always clock zeros through the shift register instead
+  wire rst_n;
+  assign rst_n = 1;
+  
+  serial_load_lut #(4, 3) lut(.d(io_in[0]), .clk(io_in[1]), .cs_n(io_in[2]), .rst_n(rst_n),
+                              .rot_n(io_in[7]), .sel(io_in[6:3]), .out(io_out[2:0]));
+  
   
   assign io_out[7:3] = 0;
   

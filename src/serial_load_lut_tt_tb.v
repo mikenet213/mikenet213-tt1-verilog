@@ -1,11 +1,12 @@
 module test;
   reg [63:0] in;
   reg [3:0] sel;
-  wire [3:0] out;
+  wire [2:0] out;
   reg clk;
   reg d;
   reg rst_n;
   reg cs_n;
+  reg rot_n;
   
   //serial_load_lut #(4, 4) lut(.d(d), .clk(clk), .rst_n(rst_n), .cs_n(cs), .sel(sel), .out(out));
   wire [7:0] io_in;
@@ -13,13 +14,12 @@ module test;
   
   assign io_in[0] = d;
   assign io_in[1] = clk;
-  assign io_in[2] = rst_n;
-  assign io_in[3] = cs_n;
-  assign io_in[7:4] = sel[3:0];
+  assign io_in[2] = cs_n;
+  assign io_in[6:3] = sel[3:0];
+  assign io_in[7] = rot_n;
   
-  assign out[3:0] = io_out[3:0];
+  assign out[2:0] = io_out[2:0];
   
-  // Wrap for TinyTapeout
   
   user_module_bc4d7220e4fdbf20a574d56ea112a8e1 lut(.io_in(io_in), .io_out(io_out));
   
@@ -30,15 +30,16 @@ module test;
     $dumpfile("dump.vcd");
     $dumpvars(1, test);
     
-    in = 64'hFEDCBA9876543210;
+    in = 64'h9876543210FEDCBA;
     
         
     #10 clk = 0;
     #10 cs_n = 1;
-    #10 rst_n = 1;
-    #10 rst_n = 0;
-    #10 rst_n = 1;
-    #10 rst_n = 1;
+    #10 rot_n = 1;
+    //#10 rst_n = 1;
+    //#10 rst_n = 0;
+    //#10 rst_n = 1;
+    //#10 rst_n = 1;
     
     #10 cs_n = 0;
     
@@ -55,6 +56,19 @@ module test;
     end
     
     #10 clk = 0;
+    #10 sel = 0;
+    
+    #10 rot_n = 0;
+    
+    for (ic = 0; ic < 16; ic = ic + 1) begin
+      pulse_clk;
+    end
+    
+    #10 rot_n = 1;
+    
+    pulse_clk;
+    pulse_clk;
+    pulse_clk;
     
   end
   
